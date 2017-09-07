@@ -1,178 +1,170 @@
-pipeline {
-    agent any
-    
-    stages {
-
-        def ownerList = [ "FELKA_CHANG",
-        "bill_lin", "sean_lu", "shawn_lin", "Tony.YC_Huang",
-        "henrycy_lee", "ahan_wu", "Brandon_Yen",
-        "AMT_MASD_LI_LI", "amt_masd_ting_chen", 
-        "amt_masd_mj_chang", "amt_masd_hui_xu", 
-        "amt_masd_liang_zhang", "amt_masd_wei_xu",
-        "amt_masd_fl_zhang", "amt_masd_bb_liu", "amt_masd_min_wang",
-        "sanry_huang"]
+script {
+    def ownerList = [ "FELKA_CHANG",
+    "bill_lin", "sean_lu", "shawn_lin", "Tony.YC_Huang",
+    "henrycy_lee", "ahan_wu", "Brandon_Yen",
+    "AMT_MASD_LI_LI", "amt_masd_ting_chen", 
+    "amt_masd_mj_chang", "amt_masd_hui_xu", 
+    "amt_masd_liang_zhang", "amt_masd_wei_xu",
+    "amt_masd_fl_zhang", "amt_masd_bb_liu", "amt_masd_min_wang",
+    "sanry_huang"]
 
         def isMonitorOwner = false;
-        int len=ownerList.size();
-        for(int i=0; i < len; i++){
-            def ownerPattern = "(?i)${ownerList[i]}";
-            echo "check $ownerPattern"
-            if ( params.GERRIT_CHANGE_OWNER_NAME ==~ ownerPattern ) {
-                isMonitorOwner = true;
-                break;
-            }
+    int len=ownerList.size();
+    for(int i=0; i < len; i++){
+        def ownerPattern = "(?i)${ownerList[i]}";
+        echo "check $ownerPattern"
+        if ( params.GERRIT_CHANGE_OWNER_NAME ==~ ownerPattern ) {
+            isMonitorOwner = true;
+            break;
         }
+    }
 
-        def buildSourceCode = false;
-        if ( isMonitorOwner ) {
-            node {
-                stage("print environment") {
-                    steps {
-                        sh "env"
+    def buildSourceCode = false;
+    if ( isMonitorOwner ) {
+        node {
+            stage("print environment") {
+                sh "env"
+            }
+        
+            stage("check topic") {
+                echo "topic is \"${params.GERRIT_TOPIC}\"."
+                if ( null == params.GERRIT_TOPIC || params.GERRIT_TOPIC.length() <= 0 ) {
+//                    sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"沒 有 任 何 的topic標題\" --verified \"-1\" --code-review \"-2\"' "
+                }
+            }
+            stage("Commit Message Ticket URL") {
+                def lineList = params.GERRIT_CHANGE_COMMIT_MESSAGE.split("\n");
+                def ticketURL = false;
+                len = lineList.size();
+                for(i = 0; i < len; i++) {
+                    def line = lineList[i];
+                    def matcher = line =~ /^.*https:\/\/hichub.htc.com\/+\w+\/\w+\/issues\/\d+.*$/
+                    if ( matcher.matches() ) {
+//                        echo "   match $line"
+                        ticketURL = true;
+                        break;
+                    } else {
+//                        echo "no match $line"
                     }
                 }
                 
-                stage("check topic") {
-                    echo "topic is \"${params.GERRIT_TOPIC}\"."
-                    if ( null == params.GERRIT_TOPIC || params.GERRIT_TOPIC.length() <= 0 ) {
-    //                    sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"沒 有 任 何 的topic標題\" --verified \"-1\" --code-review \"-2\"' "
+                if ( ticketURL ) {
+                    sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"Commit Message 裡面有 ticket URL\" --verified \"0\" --code-review \"0\"' "
+                } else {
+                    sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"Commit Message 裡面沒有 ticket URL\" --verified \"-1\" --code-review \"-2\"' "
+                }
+            }
+
+            stage("Check Symptom,Root Cause, Solution") {
+                def lineList = params.GERRIT_CHANGE_COMMIT_MESSAGE.split("\n");
+                def symptom = null;
+                def rootCause = null;
+                def solution = null;
+                len = lineList.size();
+                for(i = 0; i < len; i++) {
+                    def line = lineList[i];
+                    def matcher = line =~ /^Symptom:(.*)$/
+                    if ( matcher.matches() ) {
+                        symptom = matcher[0][1].trim();
+                        continue;
+                    }
+                    matcher = line =~ /^Root Cause:(.*)$/
+                    if ( matcher.matches() ) {
+                        rootCause = matcher[0][1].trim();
+                        continue;
+                    }
+                    matcher = line =~ /^Solution:(.*)$/
+                    if ( matcher.matches() ) {
+                        solution = matcher[0][1].trim();
+                        continue;
                     }
                 }
-
-                stage("Commit Message Ticket URL") {
-                    def lineList = params.GERRIT_CHANGE_COMMIT_MESSAGE.split("\n");
-                    def ticketURL = false;
-                    len = lineList.size();
-                    for(i = 0; i < len; i++) {
-                        def line = lineList[i];
-                        def matcher = line =~ /^.*https:\/\/hichub.htc.com\/+\w+\/\w+\/issues\/\d+.*$/
-                        if ( matcher.matches() ) {
-    //                        echo "   match $line"
-                            ticketURL = true;
-                            break;
-                        } else {
-    //                        echo "no match $line"
-                        }
+                echo "symptom = \"$symptom\""
+                echo "rootCause = \"$rootCause\""
+                echo "solution = \"$solution\""
+                
+                def success = true;
+                def errMessage = "";
+                if ( null == symptom || symptom.length() <=0 ) {
+                    errMessage += "Commit Message Symtom 別亂寫\n\n";
+                    success = false;
+                } else {
+                    if ( symptom.equals(solution) ) {
+                        errMessage += "Commit Message Solution can not the same with symptom\n\n";
+                        success = false;
                     }
-                    
-                    if ( ticketURL ) {
-                        sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"Commit Message 裡面有 ticket URL\" --verified \"0\" --code-review \"0\"' "
-                    } else {
-                        sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"Commit Message 裡面沒有 ticket URL\" --verified \"-1\" --code-review \"-2\"' "
+        
+                    if ( symptom.length() <= 2 ) {
+                        errMessage += "Commit Message has fucking symptom\n\n";
+                        success = false;
                     }
                 }
-
-                stage("Check Symptom,Root Cause, Solution") {
-                    def lineList = params.GERRIT_CHANGE_COMMIT_MESSAGE.split("\n");
-                    def symptom = null;
-                    def rootCause = null;
-                    def solution = null;
-                    len = lineList.size();
-                    for(i = 0; i < len; i++) {
-                        def line = lineList[i];
-                        def matcher = line =~ /^Symptom:(.*)$/
-                        if ( matcher.matches() ) {
-                            symptom = matcher[0][1].trim();
-                            continue;
-                        }
-                        matcher = line =~ /^Root Cause:(.*)$/
-                        if ( matcher.matches() ) {
-                            rootCause = matcher[0][1].trim();
-                            continue;
-                        }
-                        matcher = line =~ /^Solution:(.*)$/
-                        if ( matcher.matches() ) {
-                            solution = matcher[0][1].trim();
-                            continue;
-                        }
-                    }
-                    echo "symptom = \"$symptom\""
-                    echo "rootCause = \"$rootCause\""
-                    echo "solution = \"$solution\""
-                    
-                    def success = true;
-                    def errMessage = "";
-                    if ( null == symptom || symptom.length() <=0 ) {
-                        errMessage += "Commit Message Symtom 別亂寫\n\n";
+                if ( null == rootCause || rootCause.length() <=0 ) {
+                    errMessage += "Commit Message Root Cause 別亂寫\n\n";
+                    success = false;
+                } else {
+                    if ( rootCause.equals(symptom) ) {
+                        errMessage += "Commit Message Symptom can not the same with root cause\n\n";
                         success = false;
-                    } else {
-                        if ( symptom.equals(solution) ) {
-                            errMessage += "Commit Message Solution can not the same with symptom\n\n";
-                            success = false;
-                        }
-            
-                        if ( symptom.length() <= 2 ) {
-                            errMessage += "Commit Message has fucking symptom\n\n";
-                            success = false;
-                        }
                     }
-                    if ( null == rootCause || rootCause.length() <=0 ) {
-                        errMessage += "Commit Message Root Cause 別亂寫\n\n";
+                    if ( rootCause.equals(solution) ) {
+                        errMessage += "Commit Message Solution can not the same with root cause\n\n";
                         success = false;
-                    } else {
-                        if ( rootCause.equals(symptom) ) {
-                            errMessage += "Commit Message Symptom can not the same with root cause\n\n";
-                            success = false;
-                        }
-                        if ( rootCause.equals(solution) ) {
-                            errMessage += "Commit Message Solution can not the same with root cause\n\n";
-                            success = false;
-                        }
-                        
-                        if ( rootCause.length() <= 2 ) {
-                            errMessage += "Commit Message has fucking rootCause\n\n";
-                            success = false;
-                        }
-                    }
-                    if ( null == solution || solution.length() <=0 ) {
-                        errMessage += "Commit Message Solution 別亂寫\n\n";
-                        success = false;
-                    } else {
-                        if ( solution.length() <= 2 ) {
-                            errMessage += "Commit Message has fucking solution\n\n";
-                            success = false;
-                        }
                     }
                     
-                    
-                    if ( !success ) {
-                         sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"$errMessage\" --verified \"-1\" --code-review \"-2\"' "
+                    if ( rootCause.length() <= 2 ) {
+                        errMessage += "Commit Message has fucking rootCause\n\n";
+                        success = false;
+                    }
+                }
+                if ( null == solution || solution.length() <=0 ) {
+                    errMessage += "Commit Message Solution 別亂寫\n\n";
+                    success = false;
+                } else {
+                    if ( solution.length() <= 2 ) {
+                        errMessage += "Commit Message has fucking solution\n\n";
+                        success = false;
+                    }
+                }
+                
+                
+                if ( !success ) {
+                     sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"$errMessage\" --verified \"-1\" --code-review \"-2\"' "
+                } else {
+                    def output = sh returnStdout: true, script: "ssh ${params.GERRIT_HOST} gerrit query -- ${params.GERRIT_CHANGE_NUMBER}"
+                    echo output;
+                    if ( (output ==~ /(?s).*\n\s+status: MERGED\s+\n.*/ ) ) {
+                        println "yes, status is merged and no need to build"
                     } else {
-                        def output = sh returnStdout: true, script: "ssh ${params.GERRIT_HOST} gerrit query -- ${params.GERRIT_CHANGE_NUMBER}"
-                        echo output;
-                        if ( (output ==~ /(?s).*\n\s+status: MERGED\s+\n.*/ ) ) {
-                            println "yes, status is merged and no need to build"
-                        } else {
-                            buildSourceCode = true;
-                        }
+                        buildSourceCode = true;
                     }
                 }
             }
         }
+    }
 
-        if ( buildSourceCode ) {
-            stage("Check owner") {
-                def myParams = [
-                    string(name: 'REPO_MANIFEST_XML', value: 'o-rel_shep_qct8998-630.xml'), 
-                    booleanParam(name: 'CLEAN_WORKSPACE', value: false), 
-                    string(name: 'ROM_BUILD_EXPORT', value: 'export HTC_USERDATA_APK=""; export HTC_BUILD_STUBS_FLAG="false"; export PRIVATE_RCMS_NAME="DEFAULT"; export BCMS_SENSE_VERSION="Sense 9.0_GP"; export PRIVATE_SKU_NAME="OceanDUGL_Generic_WWE_O80_Mainline_Sense90GP_SHEP_MR"; export PRIVATE_RCMS_APP="OCEAN_DUGL_O80_SENSE90GP_MR"; export PRIVATE_RCMS_SKU="HTC Generic"; '), 
-                    string(name: 'ROM_BUILD_LUNCH', value: 'htc_ocndugl-userdebug'), 
-                    string(name: 'SLAVE_NODE', value: 'PlatformBuild'), 
-                    booleanParam(name: 'GIT_RESET_HARD', value: false), 
-                    string(name: 'SLAVE_CODE_BASE', value: '/home/jenkins/PlatformBuild/AOSP'), 
-                    text(name: 'REPO_DOWNLOAD_LIST', value: ''), 
-                    string(name: 'AOSP_BUILD_TARGET', value: 'libsqlite3_android libsqlite sqlite3 okhttp service SystemUI PrintSpooler DocumentsUI DownloadProvider')];
-            
-                for(k in params) {
-                    println k
-                    println k.class.getName()
-                    println k.getKey()
-                    println k.getValue()
-                    myParams.add(string(name: k.getKey(), value: k.getValue())); 
-                }
-
-                build job: 'BuildCodeReview', parameters: myParams, propagate: false, wait: false
+    if ( buildSourceCode ) {
+        stage("Check owner") {
+            def myParams = [
+                string(name: 'REPO_MANIFEST_XML', value: 'o-rel_shep_qct8998-630.xml'), 
+                booleanParam(name: 'CLEAN_WORKSPACE', value: false), 
+                string(name: 'ROM_BUILD_EXPORT', value: 'export HTC_USERDATA_APK=""; export HTC_BUILD_STUBS_FLAG="false"; export PRIVATE_RCMS_NAME="DEFAULT"; export BCMS_SENSE_VERSION="Sense 9.0_GP"; export PRIVATE_SKU_NAME="OceanDUGL_Generic_WWE_O80_Mainline_Sense90GP_SHEP_MR"; export PRIVATE_RCMS_APP="OCEAN_DUGL_O80_SENSE90GP_MR"; export PRIVATE_RCMS_SKU="HTC Generic"; '), 
+                string(name: 'ROM_BUILD_LUNCH', value: 'htc_ocndugl-userdebug'), 
+                string(name: 'SLAVE_NODE', value: 'PlatformBuild'), 
+                booleanParam(name: 'GIT_RESET_HARD', value: false), 
+                string(name: 'SLAVE_CODE_BASE', value: '/home/jenkins/PlatformBuild/AOSP'), 
+                text(name: 'REPO_DOWNLOAD_LIST', value: ''), 
+                string(name: 'AOSP_BUILD_TARGET', value: 'libsqlite3_android libsqlite sqlite3 okhttp service SystemUI PrintSpooler DocumentsUI DownloadProvider')];
+        
+            for(k in params) {
+                println k
+                println k.class.getName()
+                println k.getKey()
+                println k.getValue()
+                myParams.add(string(name: k.getKey(), value: k.getValue())); 
             }
+
+            build job: 'BuildCodeReview', parameters: myParams, propagate: false, wait: false
         }
     }
 }
