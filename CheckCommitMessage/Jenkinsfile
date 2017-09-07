@@ -1,40 +1,45 @@
 pipeline {
     agent any
+    
+    stages {
 
-    def ownerList = [ "FELKA_CHANG",
-    "bill_lin", "sean_lu", "shawn_lin", "Tony.YC_Huang",
-    "henrycy_lee", "ahan_wu", "Brandon_Yen",
-    "AMT_MASD_LI_LI", "amt_masd_ting_chen", 
-    "amt_masd_mj_chang", "amt_masd_hui_xu", 
-    "amt_masd_liang_zhang", "amt_masd_wei_xu",
-    "amt_masd_fl_zhang", "amt_masd_bb_liu", "amt_masd_min_wang",
-    "sanry_huang"]
+        def ownerList = [ "FELKA_CHANG",
+        "bill_lin", "sean_lu", "shawn_lin", "Tony.YC_Huang",
+        "henrycy_lee", "ahan_wu", "Brandon_Yen",
+        "AMT_MASD_LI_LI", "amt_masd_ting_chen", 
+        "amt_masd_mj_chang", "amt_masd_hui_xu", 
+        "amt_masd_liang_zhang", "amt_masd_wei_xu",
+        "amt_masd_fl_zhang", "amt_masd_bb_liu", "amt_masd_min_wang",
+        "sanry_huang"]
 
-    def isMonitorOwner = false;
-    int len=ownerList.size();
-    for(int i=0; i < len; i++){
-        def ownerPattern = "(?i)${ownerList[i]}";
-        echo "check $ownerPattern"
-        if ( params.GERRIT_CHANGE_OWNER_NAME ==~ ownerPattern ) {
-            isMonitorOwner = true;
-            break;
-        }
-    }
-
-    def buildSourceCode = false;
-    if ( isMonitorOwner ) {
-        node {
-            stage("print environment") {
-                sh "env"
+        def isMonitorOwner = false;
+        int len=ownerList.size();
+        for(int i=0; i < len; i++){
+            def ownerPattern = "(?i)${ownerList[i]}";
+            echo "check $ownerPattern"
+            if ( params.GERRIT_CHANGE_OWNER_NAME ==~ ownerPattern ) {
+                isMonitorOwner = true;
+                break;
             }
-            
-            stage("check topic") {
+        }
+
+        def buildSourceCode = false;
+        if ( isMonitorOwner ) {
+            node {
+                stage("print environment") {
+                    steps {
+                        sh "env"
+                    }
+                }
+                
+                stage("check topic") {
                     echo "topic is \"${params.GERRIT_TOPIC}\"."
                     if ( null == params.GERRIT_TOPIC || params.GERRIT_TOPIC.length() <= 0 ) {
     //                    sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"沒 有 任 何 的topic標題\" --verified \"-1\" --code-review \"-2\"' "
                     }
                 }
-            stage("Commit Message Ticket URL") {
+
+                stage("Commit Message Ticket URL") {
                     def lineList = params.GERRIT_CHANGE_COMMIT_MESSAGE.split("\n");
                     def ticketURL = false;
                     len = lineList.size();
@@ -56,7 +61,8 @@ pipeline {
                         sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"Commit Message 裡面沒有 ticket URL\" --verified \"-1\" --code-review \"-2\"' "
                     }
                 }
-            stage("Check Symptom,Root Cause, Solution") {
+
+                stage("Check Symptom,Root Cause, Solution") {
                     def lineList = params.GERRIT_CHANGE_COMMIT_MESSAGE.split("\n");
                     def symptom = null;
                     def rootCause = null;
@@ -141,31 +147,32 @@ pipeline {
                         }
                     }
                 }
-        }
-    }
-
-    if ( buildSourceCode ) {
-        stage("Check owner") {
-            def myParams = [
-                string(name: 'REPO_MANIFEST_XML', value: 'o-rel_shep_qct8998-630.xml'), 
-                booleanParam(name: 'CLEAN_WORKSPACE', value: false), 
-                string(name: 'ROM_BUILD_EXPORT', value: 'export HTC_USERDATA_APK=""; export HTC_BUILD_STUBS_FLAG="false"; export PRIVATE_RCMS_NAME="DEFAULT"; export BCMS_SENSE_VERSION="Sense 9.0_GP"; export PRIVATE_SKU_NAME="OceanDUGL_Generic_WWE_O80_Mainline_Sense90GP_SHEP_MR"; export PRIVATE_RCMS_APP="OCEAN_DUGL_O80_SENSE90GP_MR"; export PRIVATE_RCMS_SKU="HTC Generic"; '), 
-                string(name: 'ROM_BUILD_LUNCH', value: 'htc_ocndugl-userdebug'), 
-                string(name: 'SLAVE_NODE', value: 'PlatformBuild'), 
-                booleanParam(name: 'GIT_RESET_HARD', value: false), 
-                string(name: 'SLAVE_CODE_BASE', value: '/home/jenkins/PlatformBuild/AOSP'), 
-                text(name: 'REPO_DOWNLOAD_LIST', value: ''), 
-                string(name: 'AOSP_BUILD_TARGET', value: 'libsqlite3_android libsqlite sqlite3 okhttp service SystemUI PrintSpooler DocumentsUI DownloadProvider')];
-        
-            for(k in params) {
-                println k
-                println k.class.getName()
-                println k.getKey()
-                println k.getValue()
-                myParams.add(string(name: k.getKey(), value: k.getValue())); 
             }
+        }
 
-            build job: 'BuildCodeReview', parameters: myParams, propagate: false, wait: false
+        if ( buildSourceCode ) {
+            stage("Check owner") {
+                def myParams = [
+                    string(name: 'REPO_MANIFEST_XML', value: 'o-rel_shep_qct8998-630.xml'), 
+                    booleanParam(name: 'CLEAN_WORKSPACE', value: false), 
+                    string(name: 'ROM_BUILD_EXPORT', value: 'export HTC_USERDATA_APK=""; export HTC_BUILD_STUBS_FLAG="false"; export PRIVATE_RCMS_NAME="DEFAULT"; export BCMS_SENSE_VERSION="Sense 9.0_GP"; export PRIVATE_SKU_NAME="OceanDUGL_Generic_WWE_O80_Mainline_Sense90GP_SHEP_MR"; export PRIVATE_RCMS_APP="OCEAN_DUGL_O80_SENSE90GP_MR"; export PRIVATE_RCMS_SKU="HTC Generic"; '), 
+                    string(name: 'ROM_BUILD_LUNCH', value: 'htc_ocndugl-userdebug'), 
+                    string(name: 'SLAVE_NODE', value: 'PlatformBuild'), 
+                    booleanParam(name: 'GIT_RESET_HARD', value: false), 
+                    string(name: 'SLAVE_CODE_BASE', value: '/home/jenkins/PlatformBuild/AOSP'), 
+                    text(name: 'REPO_DOWNLOAD_LIST', value: ''), 
+                    string(name: 'AOSP_BUILD_TARGET', value: 'libsqlite3_android libsqlite sqlite3 okhttp service SystemUI PrintSpooler DocumentsUI DownloadProvider')];
+            
+                for(k in params) {
+                    println k
+                    println k.class.getName()
+                    println k.getKey()
+                    println k.getValue()
+                    myParams.add(string(name: k.getKey(), value: k.getValue())); 
+                }
+
+                build job: 'BuildCodeReview', parameters: myParams, propagate: false, wait: false
+            }
         }
     }
 }
