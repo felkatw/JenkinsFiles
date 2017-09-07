@@ -60,6 +60,7 @@ script {
                 def symptom = null;
                 def rootCause = null;
                 def solution = null;
+                def project = null;
                 len = lineList.size();
                 for(i = 0; i < len; i++) {
                     def line = lineList[i];
@@ -78,65 +79,76 @@ script {
                         solution = matcher[0][1].trim();
                         continue;
                     }
+                    matcher = line =~ /^Project:(.*)$/
+                    if ( matcher.matches() ) {
+                        project = matcher[0][1].trim();
+                        continue;
+                    }
                 }
                 echo "symptom = \"$symptom\""
                 echo "rootCause = \"$rootCause\""
                 echo "solution = \"$solution\""
-                
-                def success = true;
-                def errMessage = "";
-                if ( null == symptom || symptom.length() <=0 ) {
-                    errMessage += "Commit Message Symtom 別亂寫\n\n";
-                    success = false;
+                echo "project = \"$project\""
+               
+                if ( null == symptom && null == rootCause &&
+                    null == solution  && null == project ) {
+                    echo "there is none of Symptom, Root Cause, Solution, and Project";
                 } else {
-                    if ( symptom.equals(solution) ) {
-                        errMessage += "Commit Message Solution can not the same with symptom\n\n";
+                    def success = true;
+                    def errMessage = "";
+                    if ( null == symptom || symptom.length() <=0 ) {
+                        errMessage += "Commit Message Symtom 別亂寫\n\n";
                         success = false;
+                    } else {
+                        if ( symptom.equals(solution) ) {
+                            errMessage += "Commit Message Solution can not the same with symptom\n\n";
+                            success = false;
+                        }
+            
+                        if ( symptom.length() <= 2 ) {
+                            errMessage += "Commit Message has fucking symptom\n\n";
+                            success = false;
+                        }
                     }
-        
-                    if ( symptom.length() <= 2 ) {
-                        errMessage += "Commit Message has fucking symptom\n\n";
+                    if ( null == rootCause || rootCause.length() <=0 ) {
+                        errMessage += "Commit Message Root Cause 別亂寫\n\n";
                         success = false;
+                    } else {
+                        if ( rootCause.equals(symptom) ) {
+                            errMessage += "Commit Message Symptom can not the same with root cause\n\n";
+                            success = false;
+                        }
+                        if ( rootCause.equals(solution) ) {
+                            errMessage += "Commit Message Solution can not the same with root cause\n\n";
+                            success = false;
+                        }
+                        
+                        if ( rootCause.length() <= 2 ) {
+                            errMessage += "Commit Message has fucking rootCause\n\n";
+                            success = false;
+                        }
                     }
-                }
-                if ( null == rootCause || rootCause.length() <=0 ) {
-                    errMessage += "Commit Message Root Cause 別亂寫\n\n";
-                    success = false;
-                } else {
-                    if ( rootCause.equals(symptom) ) {
-                        errMessage += "Commit Message Symptom can not the same with root cause\n\n";
+                    if ( null == solution || solution.length() <=0 ) {
+                        errMessage += "Commit Message Solution 別亂寫\n\n";
                         success = false;
-                    }
-                    if ( rootCause.equals(solution) ) {
-                        errMessage += "Commit Message Solution can not the same with root cause\n\n";
-                        success = false;
+                    } else {
+                        if ( solution.length() <= 2 ) {
+                            errMessage += "Commit Message has fucking solution\n\n";
+                            success = false;
+                        }
                     }
                     
-                    if ( rootCause.length() <= 2 ) {
-                        errMessage += "Commit Message has fucking rootCause\n\n";
-                        success = false;
-                    }
-                }
-                if ( null == solution || solution.length() <=0 ) {
-                    errMessage += "Commit Message Solution 別亂寫\n\n";
-                    success = false;
-                } else {
-                    if ( solution.length() <= 2 ) {
-                        errMessage += "Commit Message has fucking solution\n\n";
-                        success = false;
-                    }
-                }
-                
-                
-                if ( !success ) {
-                     sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"$errMessage\" --verified \"-1\" --code-review \"-2\"' "
-                } else {
-                    def output = sh returnStdout: true, script: "ssh ${params.GERRIT_HOST} gerrit query -- ${params.GERRIT_CHANGE_NUMBER}"
-                    echo output;
-                    if ( (output ==~ /(?s).*\n\s+status: MERGED\s+\n.*/ ) ) {
-                        println "yes, status is merged and no need to build"
+                    
+                    if ( !success ) {
+                         sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"$errMessage\" --verified \"-1\" --code-review \"-2\"' "
                     } else {
-                        buildSourceCode = true;
+                        def output = sh returnStdout: true, script: "ssh ${params.GERRIT_HOST} gerrit query -- ${params.GERRIT_CHANGE_NUMBER}"
+                        echo output;
+                        if ( (output ==~ /(?s).*\n\s+status: MERGED\s+\n.*/ ) ) {
+                            println "yes, status is merged and no need to build"
+                        } else {
+                            buildSourceCode = true;
+                        }
                     }
                 }
             }
