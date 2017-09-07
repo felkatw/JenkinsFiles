@@ -22,45 +22,12 @@ script {
     def buildSourceCode = false;
     if ( isMonitorOwner ) {
         node {
-            stage("print environment") {
-                sh "env"
-            }
-        
-            stage("check topic") {
-                echo "topic is \"${params.GERRIT_TOPIC}\"."
-                if ( null == params.GERRIT_TOPIC || params.GERRIT_TOPIC.length() <= 0 ) {
-//                    sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"沒 有 任 何 的topic標題\" --verified \"-1\" --code-review \"-2\"' "
-                }
-            }
-            stage("Commit Message Ticket URL") {
+            def symptom = null;
+            def rootCause = null;
+            def solution = null;
+            def project = null;
+            stage("Get Symptom/Root Cause/Solution/Projectprint environment") {
                 def lineList = params.GERRIT_CHANGE_COMMIT_MESSAGE.split("\n");
-                def ticketURL = false;
-                len = lineList.size();
-                for(i = 0; i < len; i++) {
-                    def line = lineList[i];
-                    def matcher = line =~ /^.*https:\/\/hichub.htc.com\/+\w+\/\w+\/issues\/\d+.*$/
-                    if ( matcher.matches() ) {
-//                        echo "   match $line"
-                        ticketURL = true;
-                        break;
-                    } else {
-//                        echo "no match $line"
-                    }
-                }
-                
-                if ( ticketURL ) {
-                    sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"Commit Message 裡面有 ticket URL\" --verified \"0\" --code-review \"0\"' "
-                } else {
-                    sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"Commit Message 裡面沒有 ticket URL\" --verified \"-1\" --code-review \"-2\"' "
-                }
-            }
-
-            stage("Check Symptom,Root Cause, Solution") {
-                def lineList = params.GERRIT_CHANGE_COMMIT_MESSAGE.split("\n");
-                def symptom = null;
-                def rootCause = null;
-                def solution = null;
-                def project = null;
                 len = lineList.size();
                 for(i = 0; i < len; i++) {
                     def line = lineList[i];
@@ -89,11 +56,43 @@ script {
                 echo "rootCause = \"$rootCause\""
                 echo "solution = \"$solution\""
                 echo "project = \"$project\""
-               
-                if ( null == symptom && null == rootCause &&
-                    null == solution  && null == project ) {
-                    echo "there is none of Symptom, Root Cause, Solution, and Project";
-                } else {
+            }
+        
+            if ( null == symptom && null == rootCause &&
+                null == solution  && null == project ) {
+                echo "there is none of Symptom, Root Cause, Solution, and Project";
+            } else {
+                stage("check topic") {
+                    echo "topic is \"${params.GERRIT_TOPIC}\"."
+                    if ( null == params.GERRIT_TOPIC || params.GERRIT_TOPIC.length() <= 0 ) {
+    //                    sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"沒 有 任 何 的topic標題\" --verified \"-1\" --code-review \"-2\"' "
+                    }
+                }
+
+                stage("Commit Message Ticket URL") {
+                    def lineList = params.GERRIT_CHANGE_COMMIT_MESSAGE.split("\n");
+                    def ticketURL = false;
+                    len = lineList.size();
+                    for(i = 0; i < len; i++) {
+                        def line = lineList[i];
+                        def matcher = line =~ /^.*https:\/\/hichub.htc.com\/+\w+\/\w+\/issues\/\d+.*$/
+                        if ( matcher.matches() ) {
+    //                        echo "   match $line"
+                            ticketURL = true;
+                            break;
+                        } else {
+    //                        echo "no match $line"
+                        }
+                    }
+                    
+                    if ( ticketURL ) {
+                        sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"Commit Message 裡面有 ticket URL\" --verified \"0\" --code-review \"0\"' "
+                    } else {
+                        sh "ssh ${params.GERRIT_HOST} 'gerrit review \"${params.GERRIT_CHANGE_NUMBER},${params.GERRIT_PATCHSET_NUMBER}\" --message \"Commit Message 裡面沒有 ticket URL\" --verified \"-1\" --code-review \"-2\"' "
+                    }
+                }
+
+                stage("Check Symptom,Root Cause, Solution") {
                     def success = true;
                     def errMessage = "";
                     if ( null == symptom || symptom.length() <=0 ) {
