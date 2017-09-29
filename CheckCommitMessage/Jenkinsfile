@@ -5,7 +5,6 @@ script {
     "AMT_MASD_LI_LI", "amt_masd_ting_chen", 
     "amt_masd_mj_chang", "amt_masd_hui_xu", 
     "amt_masd_liang_zhang", "amt_masd_wei_xu",
-    "amt_masd_fl_zhang", "amt_masd_bb_liu", "amt_masd_min_wang",
     "sanry_huang"]
 
         def isMonitorOwner = false;
