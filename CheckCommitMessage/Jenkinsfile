@@ -104,7 +104,7 @@ script {
                         }
             
                         if ( symptom.length() <= 2 ) {
-                            errMessage += "Commit Message has fucking symptom\n\n";
+                            errMessage += "Commit Message has bad symptom\n\n";
                             success = false;
                         }
                     }
@@ -122,7 +122,7 @@ script {
                         }
                         
                         if ( rootCause.length() <= 2 ) {
-                            errMessage += "Commit Message has fucking rootCause\n\n";
+                            errMessage += "Commit Message has bad rootCause\n\n";
                             success = false;
                         }
                     }
@@ -131,7 +131,7 @@ script {
                         success = false;
                     } else {
                         if ( solution.length() <= 2 ) {
-                            errMessage += "Commit Message has fucking solution\n\n";
+                            errMessage += "Commit Message has bad solution\n\n";
                             success = false;
                         }
                     }
